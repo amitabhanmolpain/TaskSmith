@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@layer base {
+  :root {
+    --background: 260 20% 5%;
+    --foreground: 0 0% 95%;
+
+    --card: 260 15% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 260 15% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 280 80% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 15% 15%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 260 10% 20%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 280 80% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 260 15% 18%;
+    --input: 260 15% 12%;
+    --ring: 280 80% 60%;
+
+    --radius: 0.75rem;
+
+    --gradient-purple: 280 80% 60%;
+    --gradient-magenta: 310 80% 55%;
+    --gradient-blue: 240 70% 50%;
+
+    --sidebar-background: 260 20% 5%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 280 80% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 260 15% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 260 15% 18%;
+    --sidebar-ring: 280 80% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient-hero {
+    background: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 50%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-page {
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, hsl(280 80% 30% / 0.5), transparent 70%),
+                radial-gradient(ellipse 60% 40% at 80% 0%, hsl(310 80% 35% / 0.3), transparent 60%),
+                radial-gradient(ellipse 60% 40% at 20% 0%, hsl(240 70% 40% / 0.3), transparent 60%),
+                hsl(260 20% 5%);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 40px hsl(280 80% 60% / 0.15);
+  }
+}
