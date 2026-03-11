@@ -3,15 +3,60 @@ import Navbar from "@/components/Navbar";
 import TaskInput from "@/components/TaskInput";
 import GenerateButton from "@/components/GenerateButton";
 import MicroTaskList from "@/components/MicroTaskList";
-import { dummyTasks, type MicroTask } from "@/utils/dummyTasks";
+import { type MicroTask } from "@/utils/dummyTasks";
 
 const Index = () => {
   const [taskInput, setTaskInput] = useState("");
   const [tasks, setTasks] = useState<MicroTask[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = () => {
+  const handleToggleTask = (taskId: number) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) =>
+        task.id === taskId
+          ? { ...task, status: task.status === "done" ? "pending" : "done" }
+          : task
+      )
+    );
+  };
+
+  const handleGenerate = async () => {
     if (!taskInput.trim()) return;
-    setTasks(dummyTasks);
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/generate-tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ task: taskInput.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate micro tasks");
+      }
+
+      const apiTasks = (data.micro_tasks || []).map((title: string, index: number) => ({
+        id: index + 1,
+        title,
+        status: "pending" as const,
+      }));
+
+      setTasks(apiTasks);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error occurred");
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,8 +78,9 @@ const Index = () => {
 
         <div className="mt-8 w-full max-w-2xl space-y-4">
           <TaskInput value={taskInput} onChange={setTaskInput} />
-          <GenerateButton onClick={handleGenerate} disabled={!taskInput.trim()} />
-          <MicroTaskList tasks={tasks} />
+          <GenerateButton onClick={handleGenerate} disabled={!taskInput.trim() || loading} loading={loading} />
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <MicroTaskList tasks={tasks} onToggleTask={handleToggleTask} />
         </div>
       </main>
     </div>

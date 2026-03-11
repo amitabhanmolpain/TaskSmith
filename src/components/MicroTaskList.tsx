@@ -3,9 +3,10 @@ import MicroTaskCard from "./MicroTaskCard";
 
 interface MicroTaskListProps {
   tasks: MicroTask[];
+  onToggleTask: (taskId: number) => void;
 }
 
-const MicroTaskList = ({ tasks }: MicroTaskListProps) => {
+const MicroTaskList = ({ tasks, onToggleTask }: MicroTaskListProps) => {
   if (tasks.length === 0) return null;
 
   return (
@@ -14,7 +15,7 @@ const MicroTaskList = ({ tasks }: MicroTaskListProps) => {
         Generated Micro Tasks
       </h2>
       {tasks.map((task, i) => (
-        <MicroTaskCard key={task.id} task={task} index={i} />
+        <MicroTaskCard key={task.id} task={task} index={i} onToggle={onToggleTask} />
       ))}
     </div>
   );
