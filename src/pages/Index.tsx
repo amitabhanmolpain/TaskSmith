@@ -60,28 +60,38 @@ const Index = () => {
   };
 
   return (
-    <div className={`bg-gradient-page ${tasks.length === 0 ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+    <div className="relative min-h-screen">
+      <div className="fixed inset-0 -z-10 bg-gradient-page" />
+
       <Navbar />
-      <main className="flex flex-col items-center justify-center px-4 pt-28 pb-20">
-        <span className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-accent">
-          AI Tools
-        </span>
 
-        <h1 className="text-gradient-hero font-display text-5xl sm:text-6xl md:text-7xl font-bold leading-tight text-center max-w-3xl">
-          Break tasks<br />with AI.
-        </h1>
+      <main className="relative z-10">
+        <section className="flex min-h-screen flex-col items-center justify-center px-4 pt-28 pb-16">
+          <span className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-accent">
+            AI Tools
+          </span>
 
-        <p className="mt-4 max-w-xl text-center text-sm leading-relaxed text-muted-foreground">
-          Generate actionable micro-tasks from complex requirements, prioritize
-          intelligently, and ship faster.
-        </p>
+          <h1 className="text-gradient-hero font-display text-5xl sm:text-6xl md:text-7xl font-bold leading-tight text-center max-w-3xl">
+            Break tasks<br />with AI.
+          </h1>
 
-        <div className="mt-8 w-full max-w-2xl space-y-4">
-          <TaskInput value={taskInput} onChange={setTaskInput} />
-          <GenerateButton onClick={handleGenerate} disabled={!taskInput.trim() || loading} loading={loading} />
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <MicroTaskList tasks={tasks} onToggleTask={handleToggleTask} />
-        </div>
+          <p className="mt-4 max-w-xl text-center text-sm leading-relaxed text-muted-foreground">
+            Generate actionable micro-tasks from complex requirements, prioritize
+            intelligently, and ship faster.
+          </p>
+
+          <div className="mt-8 w-full max-w-2xl space-y-4">
+            <TaskInput value={taskInput} onChange={setTaskInput} />
+            <GenerateButton onClick={handleGenerate} disabled={!taskInput.trim() || loading} loading={loading} />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </div>
+        </section>
+
+        <section className="px-4 pb-20">
+          <div className="mx-auto w-full max-w-2xl">
+            <MicroTaskList tasks={tasks} onToggleTask={handleToggleTask} />
+          </div>
+        </section>
       </main>
     </div>
   );

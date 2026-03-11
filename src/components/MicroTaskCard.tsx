@@ -15,6 +15,7 @@ const statusIcon = {
 
 interface ParsedTask {
   taskTitle: string;
+  label: string;
   file: string;
   description: string;
   goal: string;
@@ -27,6 +28,7 @@ const parseTaskContent = (raw: string): ParsedTask => {
   if (firstPipe === -1) {
     return {
       taskTitle: normalized,
+      label: "General",
       file: "Not specified",
       description: "No description provided.",
       goal: "No goal provided.",
@@ -43,10 +45,21 @@ const parseTaskContent = (raw: string): ParsedTask => {
 
   return {
     taskTitle: taskTitle || "Untitled task",
+    label: extractField("Label") || "General",
     file: extractField("File") || "Not specified",
     description: extractField("Description") || "No description provided.",
     goal: extractField("Goal") || "No goal provided.",
   };
+};
+
+const labelStyles: Record<string, string> = {
+  frontend: "bg-sky-500/20 text-sky-300 border-sky-400/30",
+  backend: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30",
+  database: "bg-amber-500/20 text-amber-300 border-amber-400/30",
+  qa: "bg-pink-500/20 text-pink-300 border-pink-400/30",
+  devops: "bg-indigo-500/20 text-indigo-300 border-indigo-400/30",
+  integration: "bg-violet-500/20 text-violet-300 border-violet-400/30",
+  general: "bg-secondary text-secondary-foreground border-border",
 };
 
 const MicroTaskCard = ({ task, index, onToggle }: MicroTaskCardProps) => {
@@ -62,6 +75,12 @@ const MicroTaskCard = ({ task, index, onToggle }: MicroTaskCardProps) => {
       </span>
 
       <div className="min-w-0 space-y-3">
+        <span
+          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${labelStyles[parsed.label.toLowerCase()] || labelStyles.general}`}
+        >
+          {parsed.label}
+        </span>
+
         <p className={`text-base font-semibold leading-snug ${task.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}>
           {parsed.taskTitle}
         </p>
