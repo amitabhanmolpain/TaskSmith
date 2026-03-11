@@ -1,55 +1,36 @@
-import google.generativeai as genai 
-import os 
+from google import genai
+import os
+from dotenv import load_dotenv
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+load_dotenv()
 
-model = genai.GenerativeModel("gemini-1.5-flash")
-
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def generate_micro_tasks(task_text):
-    """
-    Generate micro tasks from a  given task using Gemini AI
-    """
 
     prompt = f"""
-    You are a software project assistant.
+You are an expert software engineering assistant.
 
-    Break  the following task into  small actionable micro tasks. 
+Break the following task into small actionable developer micro-tasks.
 
-    Task:
-    {task_text}
+Task:
+{task_text}
 
-     Return  the result as a  numbered list. 
+Return only a numbered list.
+"""
 
-     """ 
-    
-    try:
-        response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="models/gemini-2.5-flash",
+        contents=prompt
+    )
 
-        text_output = response.text 
+    output = response.text
 
-        tasks = []
+    tasks = []
 
-        for line in text_output.split("\n"):
-            line = line.strip()
+    for line in output.split("\n"):
+        line = line.strip()
+        if line and line[0].isdigit():
+            tasks.append(line.split(".",1)[1].strip())
 
-            if line and line[0].isdigit():
-                task = line.split(".", 1)[1].strip()
-                tasks.append(task)
-        return tasks 
-
-    except Exception as e:
-        print("AI generation error:", e)
-
-
-        return[
-            "Analyze the task requirements",
-            "Identify affected files",
-            "Implemement the necessary  changes",
-            "write tests for the changes"
-        ]    
-    
-    
-
-        
-    
+    return tasks
