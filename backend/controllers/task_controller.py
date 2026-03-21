@@ -5,11 +5,11 @@ from services.ai_service import generate_micro_tasks
 
 def create_task():
     try:
-        data = request.json
-        task_text = data.get("task")
+        data = request.json or {}
+        task_text = (data.get("task") or "").strip()
 
         if not task_text:
-            return jsonify({"error": "Task is  required"}), 400
+            return jsonify({"error": "Task is required"}), 400
         
 
         micro_tasks = generate_micro_tasks(task_text)
