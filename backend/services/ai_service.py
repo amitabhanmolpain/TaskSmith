@@ -1,14 +1,201 @@
 from google import genai
 import os
 import re
+from typing import Dict, List
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+ALLOWED_LABELS = {"Frontend", "Backend", "Database", "QA", "DevOps", "Integration"}
+
+REPO_FILES = {
+    "Backend": [
+        "backend/run.py",
+        "backend/routes/task_routes.py",
+        "backend/controllers/task_controller.py",
+        "backend/services/ai_service.py",
+        "backend/models/task_model.py",
+        "backend/config/db.py",
+        "backend/test.py",
+    ],
+    "Frontend": [
+        "src/pages/Index.tsx",
+        "src/components/MicroTaskList.tsx",
+        "src/components/MicroTaskCard.tsx",
+        "src/components/GenerateButton.tsx",
+        "src/components/TaskInput.tsx",
+    ],
+    "Database": ["backend/config/db.py", "backend/models/task_model.py"],
+    "QA": ["backend/test.py"],
+    "DevOps": ["backend/run.py"],
+    "Integration": ["backend/routes/task_routes.py", "backend/controllers/task_controller.py"],
+}
+
+ALL_REPO_FILES = {path for files in REPO_FILES.values() for path in files}
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", (value or "")).strip()
+
+
+def _get_genai_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+
+    return genai.Client(api_key=api_key)
+
+
+def _sanitize_label(label: str) -> str:
+    cleaned = _normalize_text(label).lower()
+    for allowed in ALLOWED_LABELS:
+        if cleaned == allowed.lower():
+            return allowed
+    if "front" in cleaned:
+        return "Frontend"
+    if "back" in cleaned or "api" in cleaned:
+        return "Backend"
+    if "db" in cleaned or "data" in cleaned:
+        return "Database"
+    if "test" in cleaned or "qa" in cleaned:
+        return "QA"
+    if "devops" in cleaned or "deploy" in cleaned:
+        return "DevOps"
+    return "Integration"
+
+
+def _sanitize_file(file_path: str, label: str) -> str:
+    cleaned = _normalize_text(file_path)
+    if cleaned in ALL_REPO_FILES:
+        return cleaned
+
+    # If model returns an unknown path, map it to the closest allowed file by label.
+    return REPO_FILES.get(label, ["backend/services/ai_service.py"])[0]
+
+
+def _format_micro_task(index: int, task_data: Dict[str, str]) -> str:
+    title = _normalize_text(task_data.get("title") or f"Task {index}")
+    label = _sanitize_label(task_data.get("label", "Integration"))
+    file_path = _sanitize_file(task_data.get("file", ""), label)
+    description = _normalize_text(task_data.get("description") or "Implement the required update.")
+    goal = _normalize_text(task_data.get("goal") or "Complete a meaningful part of the work.")
+
+    return (
+        f"{index}. {title} | Label: {label} | File: {file_path} | "
+        f"Description: {description} | Goal: {goal}"
+    )
+
+
+def _extract_field(block: str, key: str) -> str:
+    pattern = re.compile(rf"{key}:\s*(.*?)(?=\s+(?:Label|File|Description|Goal):|$)", re.IGNORECASE | re.DOTALL)
+    match = pattern.search(block)
+    return _normalize_text(match.group(1)) if match else ""
+
+
+def _parse_ai_output(output: str) -> List[str]:
+    text = (output or "").replace("**", "").replace("`", "").strip()
+    if not text:
+        return []
+
+    sections = re.split(r"\n(?=\s*\d+\.\s+)", text)
+    tasks = []
+
+    for section in sections:
+        section = section.strip()
+        if not section:
+            continue
+
+        lines = [line.strip() for line in section.splitlines() if line.strip()]
+        if not lines:
+            continue
+
+        header = lines[0]
+        number_match = re.match(r"^(\d+)\.\s*(.*)$", header)
+        if not number_match:
+            continue
+
+        index = int(number_match.group(1))
+        title = _normalize_text(number_match.group(2))
+        merged = _normalize_text(" ".join(lines[1:]))
+
+        task_data = {
+            "title": title,
+            "label": _extract_field(merged, "Label") or "Integration",
+            "file": _extract_field(merged, "File"),
+            "description": _extract_field(merged, "Description"),
+            "goal": _extract_field(merged, "Goal"),
+        }
+
+        tasks.append(_format_micro_task(index, task_data))
+
+    return tasks
+
+
+def _select_primary_label(task_text: str) -> str:
+    lowered = task_text.lower()
+    if any(word in lowered for word in ["ui", "ux", "page", "button", "component", "react", "frontend"]):
+        return "Frontend"
+    if any(word in lowered for word in ["db", "database", "schema", "mongo", "query"]):
+        return "Database"
+    if any(word in lowered for word in ["test", "qa", "bug", "verify"]):
+        return "QA"
+    if any(word in lowered for word in ["deploy", "server", "run", "devops", "infra"]):
+        return "DevOps"
+    if any(word in lowered for word in ["api", "route", "controller", "service", "backend"]):
+        return "Backend"
+    return "Integration"
+
+
+def _generate_dynamic_fallback(task_text: str) -> List[str]:
+    cleaned_task = _normalize_text(task_text) or "the requested feature"
+    primary_label = _select_primary_label(cleaned_task)
+    primary_file = REPO_FILES.get(primary_label, ["backend/services/ai_service.py"])[0]
+
+    fallback_plan = [
+        {
+            "title": f"Clarify the expected result for: {cleaned_task}",
+            "label": "Integration",
+            "file": "backend/controllers/task_controller.py",
+            "description": "Review incoming task text and list the exact output the micro-task generator should return.",
+            "goal": "Ensure generation follows a clear and testable outcome.",
+        },
+        {
+            "title": "Implement the core generation logic",
+            "label": primary_label,
+            "file": primary_file,
+            "description": f"Add or update logic to handle '{cleaned_task}' with concrete steps and no placeholder wording.",
+            "goal": "Produce actionable micro tasks that map to real code changes.",
+        },
+        {
+            "title": "Wire task output through the API response",
+            "label": "Backend",
+            "file": "backend/controllers/task_controller.py",
+            "description": "Validate generated task entries and return them in a consistent list format.",
+            "goal": "Keep frontend consumption stable and predictable.",
+        },
+        {
+            "title": "Add validation for malformed AI output",
+            "label": "Backend",
+            "file": "backend/services/ai_service.py",
+            "description": "Parse model output and normalize missing fields such as Label, File, Description, and Goal.",
+            "goal": "Avoid broken tasks when the model response is partially formatted.",
+        },
+        {
+            "title": "Run a focused generation test",
+            "label": "QA",
+            "file": "backend/test.py",
+            "description": f"Submit '{cleaned_task}' and verify every returned item has a clear title, file path, description, and goal.",
+            "goal": "Confirm micro-task quality before using it in the UI.",
+        },
+    ]
+
+    return [_format_micro_task(i + 1, task) for i, task in enumerate(fallback_plan)]
 
 
 def generate_micro_tasks(task_text):
+    cleaned_task_text = _normalize_text(task_text)
+    if not cleaned_task_text:
+        return []
 
     prompt = f"""
 You are an expert Senior Software Engineer and Technical Project Planner.
@@ -48,53 +235,33 @@ OUTPUT FORMAT (strict):
    Description: <what to implement>
    Goal: <why it exists>
 
+QUALITY RULES:
+- Return 5 to 8 micro tasks.
+- Every task must include all 4 fields exactly once: Label, File, Description, Goal.
+- Do not return placeholders like "TBD", "N/A", or "Not specified".
+- Use short, direct action language.
+
 Only return the numbered list. Do not include introductions, explanations, markdown code fences, or extra notes.
 
 INPUT TASK:
-{task_text}
+{cleaned_task_text}
 """
 
     try:
+        client = _get_genai_client()
+        if client is None:
+            return _generate_dynamic_fallback(cleaned_task_text)
+
         response = client.models.generate_content(
             model="models/gemini-2.5-flash",
             contents=prompt
         )
 
-        output = response.text or ""
-        output = output.replace("**", "").replace("`", "")
-        lines = [line.rstrip() for line in output.splitlines() if line.strip()]
+        parsed_tasks = _parse_ai_output(response.text or "")
+        if parsed_tasks:
+            return parsed_tasks
 
-        tasks = []
-        current_block = []
-
-        for raw_line in lines:
-            line = raw_line.strip()
-            if re.match(r"^\d+\.\s+", line):
-                if current_block:
-                    tasks.append(" | ".join(current_block))
-                current_block = [line]
-            elif current_block:
-                current_block.append(line)
-
-        if current_block:
-            tasks.append(" | ".join(current_block))
-
-        if tasks:
-            return tasks
-
-        # Fallback when the model returns unstructured text.
-        fallback = []
-        for line in lines:
-            if re.match(r"^\d+\.\s+", line):
-                fallback.append(re.sub(r"^\d+\.\s+", "", line).strip())
-
-        return fallback if fallback else ["1. Define implementation task | Label: Backend | File: backend/services/ai_service.py | Description: Refine prompt and parsing logic. | Goal: Return structured micro-tasks reliably."]
+        return _generate_dynamic_fallback(cleaned_task_text)
 
     except Exception:
-        return [
-            "1. Check the input task text | Label: Backend | File: backend/controllers/task_controller.py | Description: Make sure the request includes the main task text before sending it to the AI service. | Goal: Prevent empty or unclear requests.",
-            "2. Update the AI prompt | Label: Backend | File: backend/services/ai_service.py | Description: Tell the AI to write tasks in simple words and include a clear role label. | Goal: Make the output easy to read.",
-            "3. Check the API response | Label: Integration | File: backend/controllers/task_controller.py | Description: Confirm the backend returns the micro_tasks list in the expected format. | Goal: Keep the frontend and backend working together.",
-            "4. Review task display in the UI | Label: Frontend | File: src/components/MicroTaskList.tsx | Description: Make sure each task label and text is easy to scan in the frontend list. | Goal: Help developers read tasks faster.",
-            "5. Run a quick test | Label: QA | File: backend/test.py | Description: Send one sample task to the AI service and review the returned micro-tasks. | Goal: Catch prompt or parsing problems early."
-        ]
+        return _generate_dynamic_fallback(cleaned_task_text)
